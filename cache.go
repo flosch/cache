@@ -30,13 +30,10 @@ package cache
 import (
 	"container/list"
 	"math"
-	"sync"
 	"time"
 )
 
 type Cache struct {
-	sync.Mutex
-
 	m map[string]*list.Element
 	l *list.List
 
@@ -92,8 +89,6 @@ func New(config Config) *Cache {
 
 // Reset clears the cache.
 func (c *Cache) Reset() {
-	c.Lock()
-	defer c.Unlock()
 	c.m = make(map[string]*list.Element, c.config.MaxItems)
 	c.l.Init()
 	c.size = 0
@@ -124,9 +119,6 @@ func (c *Cache) enforceCapacity() {
 // Set sets or updates a cache item for the given key to the given value,
 // and the given value size in bytes.
 func (c *Cache) Set(key string, value interface{}, size int64) {
-	c.Lock()
-	defer c.Unlock()
-
 	var it *Item
 	elem, ok := c.m[key]
 	if ok {
@@ -186,8 +178,6 @@ func (c *Cache) getItemPtr(key string) (it *Item, ok bool) {
 // Get returns a value of item cached under the given key.
 // If there is no such key in the cache, it returns nil, false.
 func (c *Cache) Get(key string) (value interface{}, ok bool) {
-	c.Lock()
-	defer c.Unlock()
 	if it, ok := c.getItemPtr(key); ok {
 		return it.Value, true
 	}
@@ -196,8 +186,6 @@ func (c *Cache) Get(key string) (value interface{}, ok bool) {
 
 // GetItem returns a copy of item cached under the given key.
 func (c *Cache) GetItem(key string) (it Item, ok bool) {
-	c.Lock()
-	defer c.Unlock()
 	if it, ok := c.getItemPtr(key); ok {
 		return *it, true
 	}
@@ -208,8 +196,6 @@ func (c *Cache) GetItem(key string) (it Item, ok bool) {
 // items, the second return value is false. Accessing oldest item via this
 // function doesn't change its access time or the order of items in cache.
 func (c *Cache) OldestItem() (it Item, ok bool) {
-	c.Lock()
-	defer c.Unlock()
 	if tail := c.l.Back(); tail != nil {
 		return *(tail.Value.(*Item)), true
 	}
@@ -243,8 +229,6 @@ func (c *Cache) dropTail() bool {
 
 // Remove deletes an item with the given key from cache.
 func (c *Cache) Remove(key string) bool {
-	c.Lock()
-	defer c.Unlock()
 	elem, ok := c.m[key]
 	if !ok {
 		return false
@@ -255,37 +239,27 @@ func (c *Cache) Remove(key string) bool {
 
 // Len returns the number of items in cache.
 func (c *Cache) Len() int {
-	c.Lock()
-	defer c.Unlock()
 	return c.l.Len()
 }
 
 // Size returns the size of all values in cache.
 func (c *Cache) Size() int64 {
-	c.Lock()
-	defer c.Unlock()
 	return c.size
 }
 
 // Reconfigure sets a new cache configuration.
 func (c *Cache) Reconfigure(newConfig Config) {
-	c.Lock()
-	defer c.Unlock()
 	c.config = newConfig
 	c.enforceCapacity()
 }
 
 // Config returns a copy of cache configuration.
 func (c *Cache) Config() Config {
-	c.Lock()
-	defer c.Unlock()
 	return c.config
 }
 
 // Items returns a slice of copies of all items in cache.
 func (c *Cache) Items() []Item {
-	c.Lock()
-	defer c.Unlock()
 	items := make([]Item, 0, c.l.Len())
 	for elem := c.l.Front(); elem != nil; elem = elem.Next() {
 		items = append(items, *elem.Value.(*Item))
